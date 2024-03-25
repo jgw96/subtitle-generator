@@ -7,8 +7,6 @@ import { fluentButton, fluentTextArea, provideFluentDesignSystem } from '@fluent
 
 provideFluentDesignSystem().register(fluentButton(), fluentTextArea());
 
-import 'speech-to-text-toolkit';
-
 
 @customElement('app-home')
 export class AppHome extends LitElement {
@@ -217,9 +215,6 @@ export class AppHome extends LitElement {
         </div>
 
         <fluent-text-area .value="${this.transcribedText}" placeholder="Transcribed text will appear here"></fluent-text-area>
-
-        <speech-to-text localOrCloud="local">
-        </speech-to-text>
       </main>
     `;
   }

@@ -9,6 +9,9 @@ export default defineConfig({
       target: "es2022",
     }
   },
+  worker: {
+    format: "es"
+  },
   build: {
     sourcemap: true,
     assetsDir: "code",

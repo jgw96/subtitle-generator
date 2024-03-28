@@ -1,5 +1,6 @@
 // @ts-ignore
 import { AutomaticSpeechRecognitionPipeline, pipeline } from '@xenova/transformers';
+import { generateWebVTTFile } from './generate-srt';
 
 let transcriber: AutomaticSpeechRecognitionPipeline | undefined = undefined;
 
@@ -8,10 +9,12 @@ self.onmessage = async (e) => {
         return new Promise((resolve) => {
             console.log("in worker", e.data)
             localTranscribe(e.data.blob, e.data.model).then((transcription) => {
+                const subtitles = generateWebVTTFile(transcription.chunks);
                 console.log("in worker", transcription)
                 self.postMessage({
                     type: 'transcribe',
-                    transcription: transcription
+                    transcription: transcription.text,
+                    subtitles
                 });
                 resolve(transcription);
             })
@@ -41,18 +44,21 @@ export async function loadTranscriber(model: "tiny" | "base"): Promise<void> {
     })
 }
 
-export async function localTranscribe(audio: Blob, model: "tiny" | "base"): Promise<string> {
+export async function localTranscribe(audio: Blob, model: "tiny" | "base"): Promise<any> {
     return new Promise(async (resolve) => {
         await loadTranscriber(model);
 
         const output = await transcriber(audio, {
+            return_timestamps: true,
             chunk_length_s: 30,
             stride_length_s: 5,
             callback_function: callback_function, // after each generation step
             chunk_callback: chunk_callback, // after each chunk is processed
         });
 
-        resolve(output.text);
+        console.log('localTranscribe', output)
+
+        resolve(output);
     })
 }
 
@@ -94,20 +100,22 @@ function callback_function(item: any) {
     // Update tokens of last chunk
     last.tokens = [...item[0].output_token_ids];
 
-    console.log("callback_function", item, last)
+    console.log("callback_function", item, last);
+    console.log('last', chunks_to_process);
 
-    // Merge text chunks
-    // TODO optimise so we don't have to decode all chunks every time
-    const data = transcriber.tokenizer._decode_asr(chunks_to_process, {
-        time_precision: time_precision,
-        return_timestamps: true,
-        force_full_sequences: false,
-    });
+    if (last.tokens.length > 1) {
+        // Merge text chunks
+        // TODO optimise so we don't have to decode all chunks every time
+        const data = transcriber.tokenizer._decode_asr(chunks_to_process, {
+            time_precision: time_precision,
+            return_timestamps: true,
+            force_full_sequences: false,
+        });
 
-    console.log("callback_function", data);
-
-    self.postMessage({
-        type: 'transcribe-interim',
-        transcription: data[0]
-    });
+        self.postMessage({
+            type: 'transcribe-interim',
+            transcription: data[0],
+            timestamp: data[1].chunks[0]?.timestamp || [],
+        });
+    }
 }

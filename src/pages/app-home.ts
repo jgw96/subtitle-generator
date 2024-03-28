@@ -15,19 +15,55 @@ export class AppHome extends LitElement {
 
   @state() transcribedText: string = '';
   @state() transcribing: boolean = false;
+  @state() transcriptSubtitleFile: any = null;
+  @state() currentFileData: any = null;
+  @state() videoGenerated: boolean = false;
 
   static styles = [
     styles,
     css`
+      fluent-text-area {
+        width: 100%;
+        height: 100%;
+      }
+
       fluent-text-area::part(control) {
-        height: 94vh;
+        height: 100%;
         border: none;
+        border-radius: 8px;
+        overflow-y: hidden;
+      }
+
+      #video-background {
+        backdrop-filter: blur(46px);
+        z-index: 999;
+        display: flex;
+        justify-content: center;
+        padding: 10px;
+
+        border-radius: 8px;
+        background: #34343d;
+
+        align-items: flex-start;
+        flex-direction: column;
+
+        animation: fadeup 0.5s;
+
+      }
+
+      #video-background p {
+        font-weight: bold;
+      }
+
+      #video-block video {
+        width: 100%;
+        height: 100%;
         border-radius: 8px;
       }
 
       main {
         display: grid;
-        grid-template-columns: 1fr 5fr;
+        grid-template-columns: 20vw 77vw;
         padding: 8px;
 
         padding-top: 30px;
@@ -36,6 +72,16 @@ export class AppHome extends LitElement {
         align-items: center;
         gap: 8px;
         overflow-y: hidden;
+      }
+
+      #main-content {
+        // display: grid;
+        // grid-template-columns: 1fr 1fr;
+
+        display: flex;
+        flex-direction: column;
+        height: 95.2vh;
+        gap: 8px;
       }
 
       h1 {
@@ -67,6 +113,17 @@ export class AppHome extends LitElement {
         fluent-button.neutral::part(control) {
           background: #ffffff14;
           color: white;
+        }
+      }
+
+      @keyframes fadeup {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
         }
       }
   `];
@@ -134,12 +191,18 @@ export class AppHome extends LitElement {
   }
 
   async transcribeFile() {
+    this.shadowRoot?.querySelector("#video-block")?.removeChild(this.shadowRoot?.querySelector("#video-block")?.firstChild!);
+
+    this.transcribedText = "";
+    this.transcriptSubtitleFile = undefined;
+    this.videoGenerated = false;
+
     const pickerOpts = {
       types: [
         {
-          description: "Audio",
+          description: "Video",
           accept: {
-            "audio/*": [".wav"],
+            "video/*": [".wav"],
           },
         },
       ],
@@ -153,7 +216,11 @@ export class AppHome extends LitElement {
     // get file contents
     const fileData = await fileHandle.getFile();
 
+    this.currentFileData = fileData;
+
     await this.handleTranscribing(fileData);
+
+    await this.makeVideoElAndSubTrack();
   }
 
   private async handleTranscribing(fileData: any) {
@@ -165,7 +232,10 @@ export class AppHome extends LitElement {
     const { doLocalWhisper } = await import('../services/ai');
     const transcript = await doLocalWhisper(fileData, "tiny");
 
-    this.transcribedText = transcript;
+    console.log("transcript", transcript)
+
+    this.transcribedText = transcript.transcription;
+    this.transcriptSubtitleFile = transcript.subtitles;
     this.transcribing = false;
 
     textArea.readonly = false;
@@ -201,20 +271,94 @@ export class AppHome extends LitElement {
     await writable.close();
   }
 
+  async getSubtitles() {
+    // @ts-ignore
+    const fileHandle = await window.showSaveFilePicker({
+      types: [
+        {
+          description: "Text",
+          accept: {
+            "text/vtt": [".vtt"],
+          },
+        },
+      ],
+    });
+    const writable = await fileHandle.createWritable();
+    await writable.write(this.transcriptSubtitleFile);
+    await writable.close();
+  }
+
+  async makeVideoElAndSubTrack() {
+    // make this.transcriptSubtitleFile a WebVTT file, its just formatted text
+    const webVTTFile = new Blob([this.transcriptSubtitleFile], { type: 'text/vtt' });
+
+    const video = document.createElement('video');
+    video.src = URL.createObjectURL(this.currentFileData);
+    video.controls = true;
+
+    const track = document.createElement('track');
+    track.kind = 'subtitles';
+    track.label = 'English';
+    track.srclang = 'en';
+    track.default = true;
+    track.src = URL.createObjectURL(webVTTFile);
+
+    video.appendChild(track);
+
+    this.videoGenerated = true;
+
+    await this.updateComplete;
+
+    //await video.play();
+    // this.renderFullVideoInCanvas(video);
+    this.shadowRoot?.querySelector("#video-block")?.appendChild(video);
+  }
+
+  renderFullVideoInCanvas(video: HTMLVideoElement) {
+    // play video in canvas
+    const canvas = document.createElement('canvas');
+    this.shadowRoot?.querySelector("#video-block")?.appendChild(canvas);
+
+    const ctx = canvas.getContext('2d');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    if ("requestVideoFrameCallback" in HTMLVideoElement.prototype) {
+
+      const updateCanvas = () => {
+        ctx!.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        // Re-register the callback to run on the next frame
+        video.requestVideoFrameCallback(updateCanvas);
+      };
+
+      // Initial registration of the callback to run on the first frame
+      video.requestVideoFrameCallback(updateCanvas);
+    } else {
+      alert("Your browser does not support requestVideoFrameCallback().");
+    }
+
+  }
+
   render() {
     return html`
+
       <main>
         <div id="action-bar">
-          <fluent-button appearance="accent" ?disabled="${this.transcribing}" @click="${() => this.transcribeFile()}">Transcribe File</fluent-button>
+          <fluent-button appearance="accent" ?disabled="${this.transcribing}" @click="${() => this.transcribeFile()}">Generate Subtitles</fluent-button>
 
-          <div id="sub-actions">
-            <fluent-button @click="${() => this.save()}">Save</fluent-button>
+          ${this.transcribedText && this.transcribedText.length > 0 && this.transcribing === false ? html`<div id="sub-actions">
+            <fluent-button @click="${() => this.save()}">Save Transcript</fluent-button>
+            <fluent-button @click="${() => this.getSubtitles()}">Save Subtitle File</fluent-button>
             <fluent-button @click="${() => this.copy()}">Copy</fluent-button>
             <fluent-button @click="${() => this.share()}">Share</fluent-button>
-          </div>
+          </div>` : null}
         </div>
 
-        <fluent-text-area .value="${this.transcribedText}" placeholder="Transcribed text will appear here"></fluent-text-area>
+        <div id="main-content">
+          <fluent-text-area .value="${this.transcribedText}" placeholder="Transcribed text will appear here"></fluent-text-area>
+          ${this.videoGenerated === true ? html`<div id="video-background"> <p>Test Generated Subtitles</p><div id="video-block"></div></div>` : null}
+        </div>
       </main>
     `;
   }

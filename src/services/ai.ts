@@ -1,5 +1,6 @@
 let whisperWorker: Worker;
 
+import { formatTime } from './generate-srt';
 // @ts-ignore
 import WhisperWorker from './local-ai?worker'
 
@@ -11,7 +12,7 @@ export async function loadTranscriber(model: "tiny" | "base"): Promise<void> {
     });
 }
 
-export function doLocalWhisper(audioFile: Blob, model: "tiny" | "base"): Promise<string> {
+export function doLocalWhisper(audioFile: Blob, model: "tiny" | "base"): Promise<any> {
     return new Promise((resolve) => {
         const fileReader = new FileReader();
         fileReader.onloadend = async () => {
@@ -39,14 +40,25 @@ export function doLocalWhisper(audioFile: Blob, model: "tiny" | "base"): Promise
 
             whisperWorker.onmessage = async (e) => {
                 if (e.data.type === "transcribe") {
-                    console.log("e.data.transcript", e.data.transcription)
+                    console.log("e.data.transcript", e.data.transcription);
+                    console.log("e.data.subtitles", e.data.subtitles);
 
-                    resolve(e.data.transcription);
+
+
+                    resolve(e.data);
                 }
                 else if (e.data.type === "transcribe-interim") {
+                    let timestamp = "";
+                    if (e.data.timestamp.length > 0) {
+                        e.data.timestamp.forEach((t: number) => {
+                            timestamp += formatTime(t) + " ";
+                        });
+                    }
+
                     window.dispatchEvent(new CustomEvent('interim-transcription', {
                         detail: {
-                            message: e.data.transcription
+                            message: e.data.transcription,
+                            timestamp
                         }
                     }));
                 }

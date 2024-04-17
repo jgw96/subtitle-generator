@@ -58,6 +58,7 @@ export class AppHome extends LitElement {
       #video-block video {
         width: 100%;
         height: 100%;
+        max-height: 50vh;
         border-radius: 8px;
       }
 

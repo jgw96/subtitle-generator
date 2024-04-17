@@ -32,9 +32,7 @@ self.onmessage = async (e) => {
 export async function loadTranscriber(model: "tiny" | "base"): Promise<void> {
     return new Promise(async (resolve) => {
         if (!transcriber) {
-            transcriber = await pipeline('automatic-speech-recognition', `Xenova/whisper-${model}.en`, {
-                device: "webgpu"
-            });
+            transcriber = await pipeline('automatic-speech-recognition', `Xenova/whisper-${model}`);
 
             resolve();
         }

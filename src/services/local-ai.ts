@@ -1,5 +1,5 @@
 // @ts-ignore
-import { AutomaticSpeechRecognitionPipeline, pipeline } from '@xenova/transformers';
+import { AutomaticSpeechRecognitionPipeline, pipeline } from '@huggingface/transformers';
 import { generateWebVTTFile } from './generate-srt';
 
 let transcriber: AutomaticSpeechRecognitionPipeline | undefined = undefined;
@@ -46,17 +46,19 @@ export async function localTranscribe(audio: Blob, model: "tiny" | "base"): Prom
     return new Promise(async (resolve) => {
         await loadTranscriber(model);
 
-        const output = await transcriber(audio, {
-            return_timestamps: true,
-            chunk_length_s: 30,
-            stride_length_s: 5,
-            callback_function: callback_function, // after each generation step
-            chunk_callback: chunk_callback, // after each chunk is processed
-        });
+        if (transcriber) {
+            const output = await transcriber([audio], {
+                return_timestamps: true,
+                chunk_length_s: 30,
+                stride_length_s: 5,
+                callback_function: callback_function, // after each generation step
+                chunk_callback: chunk_callback, // after each chunk is processed
+            });
 
-        console.log('localTranscribe', output)
+            console.log('localTranscribe', output)
 
-        resolve(output);
+            resolve(output);
+        }
     })
 }
 
@@ -90,8 +92,8 @@ function chunk_callback(chunk: any) {
 // Inject custom callback function to handle merging of chunks
 function callback_function(item: any) {
     const time_precision =
-        transcriber.processor.feature_extractor.config.chunk_length /
-        transcriber.model.config.max_source_positions;
+        transcriber!.processor.feature_extractor.config.chunk_length /
+        transcriber!.model.config.max_source_positions;
 
     const last: any = chunks_to_process[chunks_to_process.length - 1];
 
@@ -104,7 +106,8 @@ function callback_function(item: any) {
     if (last.tokens.length > 1) {
         // Merge text chunks
         // TODO optimise so we don't have to decode all chunks every time
-        const data = transcriber.tokenizer._decode_asr(chunks_to_process, {
+        // @ts-ignore
+        const data = transcriber!.tokenizer._decode_asr(chunks_to_process, {
             time_precision: time_precision,
             return_timestamps: true,
             force_full_sequences: false,

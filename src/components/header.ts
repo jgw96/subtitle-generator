@@ -50,7 +50,7 @@ export class AppHeader extends LitElement {
     @media(prefers-color-scheme: light) {
       header {
         color: black;
-        background-color: white;
+        background-color: transparent;
       }
 
       nav a {

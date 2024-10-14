@@ -9,11 +9,11 @@ self.onmessage = async (e) => {
         return new Promise((resolve) => {
             console.log("in worker", e.data)
             localTranscribe(e.data.blob, e.data.model).then((transcription) => {
-                const subtitles = generateWebVTTFile(transcription.chunks);
+                const subtitles = generateWebVTTFile(transcription[0].chunks);
                 console.log("in worker", transcription)
                 self.postMessage({
                     type: 'transcribe',
-                    transcription: transcription.text,
+                    transcription: transcription[0].text,
                     subtitles
                 });
                 resolve(transcription);
@@ -32,7 +32,9 @@ self.onmessage = async (e) => {
 export async function loadTranscriber(model: "tiny" | "base"): Promise<void> {
     return new Promise(async (resolve) => {
         if (!transcriber) {
-            transcriber = await pipeline('automatic-speech-recognition', `Xenova/whisper-${model}`);
+            transcriber = await pipeline('automatic-speech-recognition', `Xenova/whisper-${model}`, {
+                device: await webgpuCheck() ? "ml" in navigator ? "webnn" : "webgpu" : "wasm"
+            });
 
             resolve();
         }
@@ -113,10 +115,33 @@ function callback_function(item: any) {
             force_full_sequences: false,
         });
 
+
+        console.log('all data', data);
+
         self.postMessage({
             type: 'transcribe-interim',
             transcription: data[0],
             timestamp: data[1].chunks[0]?.timestamp || [],
         });
+    }
+}
+
+async function webgpuCheck() {
+    // check if you can actually use the webgpu api
+    // not just if the api exists
+
+    try {
+        const adapter = await navigator.gpu.requestAdapter();
+        const device = await adapter.requestDevice();
+
+        if (device) {
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+    catch {
+        return false;
     }
 }

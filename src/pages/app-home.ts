@@ -38,7 +38,6 @@ export class AppHome extends LitElement {
         backdrop-filter: blur(46px);
         z-index: 999;
         display: flex;
-        justify-content: center;
         padding: 10px;
 
         border-radius: 8px;
@@ -49,30 +48,33 @@ export class AppHome extends LitElement {
 
         animation: fadeup 0.5s;
 
+        justify-content: flex-start;
+
       }
 
       #video-background p {
         font-weight: bold;
+        margin-top: 0;
       }
 
       #video-block video {
         width: 100%;
-        height: 100%;
+        height: 90%;
         max-height: 50vh;
         border-radius: 8px;
       }
 
       main {
-        display: grid;
-        grid-template-columns: 20vw 77vw;
         padding: 8px;
 
         padding-top: 30px;
 
         flex-direction: column;
-        align-items: center;
         gap: 8px;
         overflow-y: hidden;
+
+        display: flex;
+        align-items: normal;
       }
 
       #main-content {
@@ -81,8 +83,11 @@ export class AppHome extends LitElement {
 
         display: flex;
         flex-direction: column;
-        height: 95.2vh;
+        height: 86vh;
         gap: 8px;
+
+        display: grid;
+        grid-template-columns: 49vw 49vw;
       }
 
       h1 {
@@ -93,16 +98,19 @@ export class AppHome extends LitElement {
 
       #action-bar {
         display: flex;
-        flex-direction: column;
         gap: 12px;
         height: -webkit-fill-available;
         padding: 8px;
+
+        flex-direction: row;
+        justify-content: space-between;
       }
 
       #sub-actions {
         display: flex;
-        flex-direction: column;
         gap: 8px;
+
+        flex-direction: row;
       }
 
       @media(prefers-color-scheme: dark) {
@@ -114,6 +122,12 @@ export class AppHome extends LitElement {
         fluent-button.neutral::part(control) {
           background: #ffffff14;
           color: white;
+        }
+      }
+
+      @media(prefers-color-scheme: light) {
+        #video-background {
+          background: white;
         }
       }
 

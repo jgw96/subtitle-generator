@@ -27,6 +27,16 @@ export class AppHome extends LitElement {
         height: 100%;
       }
 
+      p {
+        backdrop-filter: blur(46px);
+        padding: 10px;
+        border-radius: 8px;
+        background: #34343d;
+        font-size: 14px;
+        margin: 0;
+        animation: fadeup 0.5s;
+      }
+
       fluent-text-area::part(control) {
         height: 100%;
         border: none;
@@ -35,13 +45,8 @@ export class AppHome extends LitElement {
       }
 
       #video-background {
-        backdrop-filter: blur(46px);
         z-index: 999;
-        display: flex;
-        padding: 10px;
 
-        border-radius: 8px;
-        background: #34343d;
 
         align-items: flex-start;
         flex-direction: column;
@@ -49,7 +54,6 @@ export class AppHome extends LitElement {
         animation: fadeup 0.5s;
 
         justify-content: flex-start;
-
       }
 
       #video-background p {
@@ -59,9 +63,8 @@ export class AppHome extends LitElement {
 
       #video-block video {
         width: 100%;
-        height: 90%;
-        max-height: 50vh;
         border-radius: 8px;
+        box-shadow: #000000cc 0px 0px 12px 0px;
       }
 
       main {
@@ -78,16 +81,14 @@ export class AppHome extends LitElement {
       }
 
       #main-content {
-        // display: grid;
-        // grid-template-columns: 1fr 1fr;
-
         display: flex;
         flex-direction: column;
         height: 86vh;
         gap: 8px;
 
-        display: grid;
-        grid-template-columns: 49vw 49vw;
+        display: flex;
+        align-items: center;
+        overflow-y: scroll;
       }
 
       h1 {
@@ -113,6 +114,24 @@ export class AppHome extends LitElement {
         flex-direction: row;
       }
 
+      p {
+        width: 68vw;
+        max-width: 68vw;
+      }
+
+      #video-background {
+        max-width: 70vw;
+        width: 70vw;
+      }
+
+      fluent-button img {
+        margin-top: 2px;
+      }
+
+      fluent-button.neutral::part(control) {
+        background: transparent;
+      }
+
       @media(prefers-color-scheme: dark) {
         fluent-text-area::part(control) {
             background: #ffffff0f;
@@ -120,14 +139,24 @@ export class AppHome extends LitElement {
         }
 
         fluent-button.neutral::part(control) {
-          background: #ffffff14;
+          background: transparent;
           color: white;
         }
       }
 
       @media(prefers-color-scheme: light) {
-        #video-background {
+        #video-background, p {
           background: white;
+        }
+
+        #video-block video {
+          box-shadow: #000000ab 0px 0px 12px 0px;
+        }
+      }
+
+      @media(prefers-color-scheme: dark) {
+        fluent-button img {
+          filter: invert(1);
         }
       }
 
@@ -154,7 +183,11 @@ export class AppHome extends LitElement {
           // this.recorded = file;
           console.log("file", sharedFile);
 
+          this.currentFileData = sharedFile;
+
+
           await this.handleTranscribing(sharedFile);
+          await this.makeVideoElAndSubTrack();
         }
       }
     }, 2000);
@@ -199,7 +232,11 @@ export class AppHome extends LitElement {
 
       if (files.length > 0) {
         const file = files[0];
+        this.currentFileData = file;
+
         await this.handleTranscribing(file);
+
+        await this.makeVideoElAndSubTrack();
       }
 
     });
@@ -235,14 +272,12 @@ export class AppHome extends LitElement {
 
     await this.handleTranscribing(fileData);
 
+    console.log("finished transcribing");
     await this.makeVideoElAndSubTrack();
   }
 
   private async handleTranscribing(fileData: any) {
     this.transcribing = true;
-    const textArea: any = this.shadowRoot!.querySelector('fluent-text-area');
-    textArea.readonly = true;
-    this.transcribedText = "Loading Model...";
 
     const { doLocalWhisper } = await import('../services/ai');
     const transcript = await doLocalWhisper(fileData, "tiny");
@@ -252,8 +287,6 @@ export class AppHome extends LitElement {
     this.transcribedText = transcript.transcription;
     this.transcriptSubtitleFile = transcript.subtitles;
     this.transcribing = false;
-
-    textArea.readonly = false;
   }
 
   async share() {
@@ -306,6 +339,7 @@ export class AppHome extends LitElement {
   async makeVideoElAndSubTrack() {
     // make this.transcriptSubtitleFile a WebVTT file, its just formatted text
     const webVTTFile = new Blob([this.transcriptSubtitleFile], { type: 'text/vtt' });
+    console.log("webVTTFile", webVTTFile);
 
     const video = document.createElement('video');
     video.src = URL.createObjectURL(this.currentFileData);
@@ -324,7 +358,9 @@ export class AppHome extends LitElement {
 
     await this.updateComplete;
 
-    //await video.play();
+    console.log("here in video stuff");
+
+    // await video.play();
     // this.renderFullVideoInCanvas(video);
     this.shadowRoot?.querySelector("#video-block")?.appendChild(video);
   }
@@ -363,16 +399,23 @@ export class AppHome extends LitElement {
           <fluent-button appearance="accent" ?disabled="${this.transcribing}" @click="${() => this.transcribeFile()}">Generate Subtitles</fluent-button>
 
           ${this.transcribedText && this.transcribedText.length > 0 && this.transcribing === false ? html`<div id="sub-actions">
-            <fluent-button @click="${() => this.save()}">Save Transcript</fluent-button>
-            <fluent-button @click="${() => this.getSubtitles()}">Save Subtitle File</fluent-button>
-            <fluent-button @click="${() => this.copy()}">Copy</fluent-button>
-            <fluent-button @click="${() => this.share()}">Share</fluent-button>
+            <fluent-button @click="${() => this.save()}">
+              <img src="assets/save-outline.svg" alt="Save" height="20" width="20" />
+            </fluent-button>
+            <!-- <fluent-button @click="${() => this.getSubtitles()}">Save Subtitle File</fluent-button> -->
+            <fluent-button @click="${() => this.copy()}">
+              <img src="assets/copy-outline.svg" alt="Copy" height="20" width="20" />
+            </fluent-button>
+            <fluent-button @click="${() => this.share()}">
+              <img src="assets/share-social-outline.svg" alt="Share" height="20" width="20" />
+            </fluent-button>
           </div>` : null}
         </div>
 
         <div id="main-content">
-          <fluent-text-area .value="${this.transcribedText}" placeholder="Transcribed text will appear here"></fluent-text-area>
-          ${this.videoGenerated === true ? html`<div id="video-background"> <p>Test Generated Subtitles</p><div id="video-block"></div></div>` : null}
+          <!-- <fluent-text-area .value="${this.transcribedText}" placeholder="Transcribed text will appear here"></fluent-text-area> -->
+          ${this.videoGenerated === true ? html`<div id="video-background"><div id="video-block"></div></div>` : null}
+          ${this.transcribedText && this.transcribedText.length > 0 ? html`<p>${this.transcribedText}</p>` : null}
         </div>
       </main>
     `;

@@ -24,7 +24,3 @@ function getBuffer(fileData: Blob): Promise<any> {
         fileReader.readAsArrayBuffer(fileData);
     });
 }
-
-// Example usage:
-// const videoFile = input.files[0]; // Replace with your video file input
-// extractAudioFromVideo(videoFile);
